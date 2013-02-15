@@ -4,6 +4,7 @@ from __future__ import division
 
 from numpy import array
 from numpy.linalg import norm
+from numpy.random import uniform
 
 from collections import defaultdict
 from itertools import izip
@@ -25,16 +26,19 @@ __status__ = "Development"
 class UnknownSampleID(Exception):
     pass
 
-#TODO: add option for random partition instead of picking sample IDs as
-# initial means
-def select_data_for_kmeans(coords_fp, mean_sample_ids,
+class BadNumberOfClusters(Exception):
+    pass
+
+def select_data_for_kmeans(coords_fp, mean_sample_ids = None,
                            principal_coordinates=[0,1,2]):
     """Selects a subset of data to use for kmeans clustering
 
     Input:
         coords_fp: the path to a coords file (output from
                    principal_coordinates.py)
-        mean_sample_ids: the IDs of the samples that will be used as the means
+        mean_sample_ids: the IDs of the samples that will be used as the means.
+                         If None, then the data points will be randomly
+                         partitioned into num_clusters clusters
         principal_coordinates: list of principal coordinates to use (e.g.,
                                [1,2,3])
     Output:
@@ -53,26 +57,32 @@ def select_data_for_kmeans(coords_fp, mean_sample_ids,
         data_point = array([PC_list[i] for i in principal_coordinates])
         data[sample_id] = data_point
 
-        if sample_id in mean_sample_ids:
-            means[mean_counter] = data_point
-            mean_counter += 1
+        if mean_sample_ids:
+            if sample_id in mean_sample_ids:
+                means[mean_counter] = data_point
+                mean_counter += 1
 
-    for mean_sample_id in mean_sample_ids:
-        if mean_sample_id not in data:
-            raise UnknownSampleID, ("Sample id %s not in coords file." %
-                                    mean_sample_id)
+    if mean_sample_ids:
+        for mean_sample_id in mean_sample_ids:
+            if mean_sample_id not in data:
+                raise UnknownSampleID, ("Sample id %s not in coords file." %
+                                        mean_sample_id)
 
     return (data, means)
 
-def assign_data_to_means(data, means):
+def assign_data_to_means(data, means, num_clusters = None):
     """Assigns each data point in data to exactly one mean in means
 
     Points in data are assigned to points in means based on shortest euclidean
-    distance.
+    distance. If no means are supplised, randomly partition data into
+    num_clusters clusters.
 
     Inputs:
         data: dict of {sample_id: data_point, ...}
         means: dict of {mean_id: mean_point, ...}
+               If None, randomly partitions data into the means
+        num_clusters: Used if means is None; number of clusters into which
+                      the data points will be randomly partitioned.
 
         where data_point and mean_point are numpy arrays
 
@@ -83,7 +93,24 @@ def assign_data_to_means(data, means):
     """
     result = defaultdict(list)
 
-    for sample_id, data_point in data.iteritems():
+    # if no means are supplied, randomly partition data
+    randomly_partition = not means
+    if randomly_partition:
+        if not num_clusters:
+            raise BadNumberOfClusters, ("This function requires initial means "
+                                        "or, if the data is to be randomly "
+                                        "partitioned, the number of clusters "
+                                        "to create")
+
+        mean_assignments = map(int, uniform(0, num_clusters, len(data)))
+
+    for counter, (sample_id, data_point) in enumerate(data.iteritems()):
+        # if the data are being randomly partitioned, then assign the data
+        # point to its mean
+        if randomly_partition:
+            result[mean_assignments[counter]].append(sample_id)
+            continue
+
         # set the first mean in the list to be the nearest
         nearest_mean_id = 0
         dist_to_nearest_mean = norm(means[0] - data_point)
@@ -113,7 +140,7 @@ def find_center(data):
     """
     return sum(data) / (1.0 * len(data))
 
-def kmeans(data, means, epsilon = 0.01, max_iterations = 5000):
+def kmeans(data, means, num_clusters, epsilon = 0.001, max_iterations = 5000):
     """Runs kmeans on data using a list of means
 
     Inputs:
@@ -121,7 +148,8 @@ def kmeans(data, means, epsilon = 0.01, max_iterations = 5000):
               array representing a point in space
 
         means: dict of {mean_id: mean_point, ...} where mean_point is a numpy
-               array representing a point in space
+               array representing a point in space. If None, the first
+               iteration will randomly assign data points to clusters
 
         epsilon: keep iterating until the means move less than epsilon distance
 
@@ -138,15 +166,23 @@ def kmeans(data, means, epsilon = 0.01, max_iterations = 5000):
     total_change = epsilon + 1
     iteration = 0
 
-    while total_change > epsilon and iteration < max_iterations:
-        total_change = 0.0
-        current_state = assign_data_to_means(data, means)
+    randomly_partitioning = not means
 
+    while total_change > epsilon and iteration < max_iterations:
+        current_state = assign_data_to_means(data, means, num_clusters)
+
+        total_change = 0.0
         for mean_id, point_ids in current_state.iteritems():
             new_mean = find_center([data[point_id] for point_id in point_ids])
-            total_change += norm(new_mean - means[mean_id])
             means[mean_id] = new_mean
 
+            if randomly_partitioning:
+                total_change = epsilon + 1
+                continue
+
+            total_change += norm(new_mean - means[mean_id])
+
+        randomly_partitioning = False
         iteration += 1
 
     results = {}

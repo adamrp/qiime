@@ -30,28 +30,44 @@ script_info['required_options'] = [
  make_option('-m', '--mapping_file', type='existing_filepath',
                 help=('Mapping file to which to add the clustering results')),
 
- make_option('-s', '--seeds', type='string', help=('Sample IDs to use as the '
-                                                   'initial means.'))
-                                
+ make_option('-n', '--num_clusters', type='int', help=('Number of clusters '
+                                                       'to create'))
+
 ]
-script_info['optional_options'] = [\
+script_info['optional_options'] = [
  make_option('-p', '--PCs', type='string', help=('PCs to consider when '
                                                  'clustering '
                                                  '[default=%default]'),
-             default='0,1,2')
+             default='0,1,2'),
+
+ make_option('-s', '--seeds', type='string', help=('Sample IDs to use as the '
+                                                   'initial means. if no '
+                                                   'seeds are supplied, '
+                                                   'the samples will be '
+                                                   'randomly partitioned into '
+                                                   'num_clusters clusters '
+                                                   '[default=%default]'),
+             default=None)
+                                
 ]
+
 script_info['version'] = __version__
 
 def main():
-    option_parser, opts, args =\
-       parse_command_line_parameters(**script_info)
+    option_parser, opts, args = parse_command_line_parameters(**script_info)
 
     PCs = map(int, opts.PCs.split(','))
+
+    if opts.seeds:
+        seeds = opts.seeds.split(',')
+    else:
+        seeds = None
+
     data, means = select_data_for_kmeans(opts.input_fp,
-                                         opts.seeds.split(','),
+                                         seeds,
                                          PCs)
 
-    results = kmeans(data, means,)
+    results = kmeans(data, means, opts.num_clusters)
 
     mapping_data, headers, comments = parse_mapping_file(
                                         open(opts.mapping_file), 'U')
