@@ -25,6 +25,8 @@ __status__ = "Development"
 class UnknownSampleID(Exception):
     pass
 
+#TODO: add option for random partition instead of picking sample IDs as
+# initial means
 def select_data_for_kmeans(coords_fp, mean_sample_ids,
                            principal_coordinates=[0,1,2]):
     """Selects a subset of data to use for kmeans clustering
