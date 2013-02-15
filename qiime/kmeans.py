@@ -22,6 +22,9 @@ __status__ = "Development"
 """Functions for computing kmeans clusters given a tab-separated dataset
 """
 
+class UnknownSampleID(Exception):
+    pass
+
 def select_data_for_kmeans(coords_fp, mean_sample_ids,
                            principal_coordinates=[0,1,2]):
     """Selects a subset of data to use for kmeans clustering
@@ -51,6 +54,11 @@ def select_data_for_kmeans(coords_fp, mean_sample_ids,
         if sample_id in mean_sample_ids:
             means[mean_counter] = data_point
             mean_counter += 1
+
+    for mean_sample_id in mean_sample_ids:
+        if mean_sample_id not in data:
+            raise UnknownSampleID, ("Sample id %s not in coords file." %
+                                    mean_sample_id)
 
     return (data, means)
 
@@ -137,7 +145,6 @@ def kmeans(data, means, epsilon = 0.01, max_iterations = 5000):
             total_change += norm(new_mean - means[mean_id])
             means[mean_id] = new_mean
 
-        print iteration
         iteration += 1
 
     results = {}
