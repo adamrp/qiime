@@ -9,8 +9,6 @@ from numpy.random import uniform
 from collections import defaultdict
 from itertools import izip
 
-from qiime.parse import parse_coords
-
 __author__ = "Adam Robbins-Pianka"
 __copyright__ = "Copyright 2011, The QIIME project"
 __credits__ = ["Adam Robbins-Pianka"]
@@ -29,13 +27,12 @@ class UnknownSampleID(Exception):
 class BadNumberOfClusters(Exception):
     pass
 
-def select_data_for_kmeans(coords_fp, mean_sample_ids = None,
+def select_data_for_kmeans(coords_data, mean_sample_ids = None,
                            principal_coordinates=[0,1,2]):
     """Selects a subset of data to use for kmeans clustering
 
     Input:
-        coords_fp: the path to a coords file (output from
-                   principal_coordinates.py)
+        coords_data: output of qiime.parse.parse_coords
         mean_sample_ids: the IDs of the samples that will be used as the means.
                          If None, then the data points will be randomly
                          partitioned into num_clusters clusters
@@ -47,7 +44,7 @@ def select_data_for_kmeans(coords_fp, mean_sample_ids = None,
 
         where data_point and mean_point are numpy arrays
     """
-    sample_ids, PCs, _, _ = parse_coords(open(coords_fp, 'U'))
+    sample_ids, PCs = coords_data[0], coords_data[1]
 
     data = {}
     means = {}
@@ -140,6 +137,7 @@ def find_center(data):
     """
     return sum(data) / (1.0 * len(data))
 
+#TODO: Add dissimilarity metric (function) as parameter!
 def kmeans(data, means, num_clusters, epsilon = 0.001, max_iterations = 5000):
     """Runs kmeans on data using a list of means
 

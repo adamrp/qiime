@@ -13,7 +13,7 @@ __status__ = "Development"
 
 
 from qiime.util import parse_command_line_parameters, make_option
-from qiime.parse import parse_mapping_file
+from qiime.parse import parse_mapping_file, parse_coords
 from qiime.format import format_mapping_file
 from qiime.kmeans import select_data_for_kmeans, kmeans
 
@@ -38,7 +38,7 @@ script_info['optional_options'] = [
  make_option('-p', '--PCs', type='string', help=('PCs to consider when '
                                                  'clustering '
                                                  '[default=%default]'),
-             default='0,1,2'),
+             default='1,2,3'),
 
  make_option('-s', '--seeds', type='string', help=('Sample IDs to use as the '
                                                    'initial means. if no '
@@ -56,14 +56,16 @@ script_info['version'] = __version__
 def main():
     option_parser, opts, args = parse_command_line_parameters(**script_info)
 
-    PCs = map(int, opts.PCs.split(','))
+    PCs = [int(x)+1 for x in opts.PCs.split(',')]
 
     if opts.seeds:
         seeds = opts.seeds.split(',')
     else:
         seeds = None
 
-    data, means = select_data_for_kmeans(opts.input_fp,
+    coords_data = parse_coords(opts.input_fp)
+
+    data, means = select_data_for_kmeans(coords_data,
                                          seeds,
                                          PCs)
 
