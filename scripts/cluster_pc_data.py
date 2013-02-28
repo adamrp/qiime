@@ -63,7 +63,7 @@ def main():
     else:
         seeds = None
 
-    coords_data = parse_coords(opts.input_fp)
+    coords_data = parse_coords(open(opts.input_fp, 'U'))
 
     data, means = select_data_for_kmeans(coords_data,
                                          seeds,
