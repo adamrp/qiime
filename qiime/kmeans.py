@@ -26,8 +26,8 @@ class UnknownSampleID(Exception):
 class BadNumberOfClusters(Exception):
     pass
 
-def select_data_for_kmeans(coords_data, mean_sample_ids = None,
-                           principal_coordinates=[0,1,2]):
+def select_pc_data_for_kmeans(coords_data, mean_sample_ids = None,
+                              principal_coordinates=[0,1,2]):
     """Selects a subset of data to use for kmeans clustering
 
     Input:
@@ -139,7 +139,7 @@ def find_center(data):
     """
     return sum(data) / (1.0 * len(data))
 
-def kmeans(data, means, num_clusters, distance_fn,
+def kmeans(data, means, distance_fn, num_clusters, 
            epsilon = 0.001, max_iterations = 5000):
     """Runs kmeans on data using a list of means
 
@@ -152,13 +152,13 @@ def kmeans(data, means, num_clusters, distance_fn,
                iteration will randomly partition the set of data points into
                num_clusters clusters.
 
-        num_clusters: integeral number of clusters to form. If means is not
-                      None, then this number must match the number of means in
-                      means.
-
         distance_fn: function that calculates "distance" between two
                      vectors. The function must take two parameters (the
                      vectors) and return a single value.
+
+        num_clusters: integeral number of clusters to form. If means is not
+                      None, then this number must match the number of means in
+                      means.
 
         epsilon: keep iterating until the means move less than epsilon distance
 

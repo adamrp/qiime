@@ -16,7 +16,7 @@ from numpy.linalg import norm
 from qiime.util import parse_command_line_parameters, make_option
 from qiime.parse import parse_mapping_file, parse_coords
 from qiime.format import format_mapping_file
-from qiime.kmeans import select_data_for_kmeans, kmeans
+from qiime.kmeans import select_pc_data_for_kmeans, kmeans
 
 script_info = {}
 script_info['brief_description'] = ""
@@ -57,7 +57,7 @@ script_info['version'] = __version__
 def main():
     option_parser, opts, args = parse_command_line_parameters(**script_info)
 
-    PCs = [int(x)+1 for x in opts.PCs.split(',')]
+    PCs = [int(x)-1 for x in opts.PCs.split(',')]
 
     if opts.seeds:
         seeds = opts.seeds.split(',')
@@ -66,9 +66,9 @@ def main():
 
     coords_data = parse_coords(open(opts.input_fp, 'U'))
 
-    data, means = select_data_for_kmeans(coords_data,
-                                         seeds,
-                                         PCs)
+    data, means = select_pc_data_for_kmeans(coords_data,
+                                            seeds,
+                                            PCs)
 
     euclidean_distance = lambda x, y: norm(x-y)
     results = kmeans(data, means, euclidean_distance, opts.num_clusters)
