@@ -3,7 +3,6 @@
 from __future__ import division
 
 from numpy import array
-from numpy.linalg import norm
 from numpy.random import uniform
 
 from collections import defaultdict
@@ -67,7 +66,7 @@ def select_data_for_kmeans(coords_data, mean_sample_ids = None,
 
     return (data, means)
 
-def assign_data_to_means(data, means, num_clusters = None):
+def assign_data_to_means(data, means, distance_fn, num_clusters = None):
     """Assigns each data point in data to exactly one mean in means
 
     Points in data are assigned to points in means based on shortest euclidean
@@ -78,6 +77,9 @@ def assign_data_to_means(data, means, num_clusters = None):
         data: dict of {sample_id: data_point, ...}
         means: dict of {mean_id: mean_point, ...}
                If None, randomly partitions data into the means
+        distnce_fn: function that calculates "distance" between points. The
+                    function must take two parameters (the vectors) and return
+                    a single value.
         num_clusters: Used if means is None; number of clusters into which
                       the data points will be randomly partitioned.
 
@@ -110,7 +112,7 @@ def assign_data_to_means(data, means, num_clusters = None):
 
         # set the first mean in the list to be the nearest
         nearest_mean_id = 0
-        dist_to_nearest_mean = norm(means[0] - data_point)
+        dist_to_nearest_mean = distance_fn(means[0], data_point)
 
         # check for closer means
         for mean_id, mean_point in means.iteritems():
@@ -118,7 +120,7 @@ def assign_data_to_means(data, means, num_clusters = None):
                 # we have already checked means[0]
                 continue
 
-            dist_to_this_mean = norm(mean_point - data_point)
+            dist_to_this_mean = distance_fn(mean_point, data_point)
             if dist_to_this_mean < dist_to_nearest_mean:
                 nearest_mean_id = mean_id
 
@@ -137,8 +139,8 @@ def find_center(data):
     """
     return sum(data) / (1.0 * len(data))
 
-#TODO: Add dissimilarity metric (function) as parameter!
-def kmeans(data, means, num_clusters, epsilon = 0.001, max_iterations = 5000):
+def kmeans(data, means, num_clusters, distance_fn,
+           epsilon = 0.001, max_iterations = 5000):
     """Runs kmeans on data using a list of means
 
     Inputs:
@@ -147,7 +149,16 @@ def kmeans(data, means, num_clusters, epsilon = 0.001, max_iterations = 5000):
 
         means: dict of {mean_id: mean_point, ...} where mean_point is a numpy
                array representing a point in space. If None, the first
-               iteration will randomly assign data points to clusters
+               iteration will randomly partition the set of data points into
+               num_clusters clusters.
+
+        num_clusters: integeral number of clusters to form. If means is not
+                      None, then this number must match the number of means in
+                      means.
+
+        distance_fn: function that calculates "distance" between two
+                     vectors. The function must take two parameters (the
+                     vectors) and return a single value.
 
         epsilon: keep iterating until the means move less than epsilon distance
 
@@ -167,7 +178,8 @@ def kmeans(data, means, num_clusters, epsilon = 0.001, max_iterations = 5000):
     randomly_partitioning = not means
 
     while total_change > epsilon and iteration < max_iterations:
-        current_state = assign_data_to_means(data, means, num_clusters)
+        current_state = assign_data_to_means(data, means, distance_fn,
+                                             num_clusters)
 
         total_change = 0.0
         for mean_id, point_ids in current_state.iteritems():
@@ -178,7 +190,7 @@ def kmeans(data, means, num_clusters, epsilon = 0.001, max_iterations = 5000):
                 total_change = epsilon + 1
                 continue
 
-            total_change += norm(new_mean - means[mean_id])
+            total_change += distance_fn(new_mean, means[mean_id])
 
         randomly_partitioning = False
         iteration += 1

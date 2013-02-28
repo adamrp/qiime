@@ -11,6 +11,7 @@ __maintainer__ = "Adam Robbins-Pianka"
 __email__ = "adam.robbinspianka@colorado.edu"
 __status__ = "Development"
 
+from numpy.linalg import norm
 
 from qiime.util import parse_command_line_parameters, make_option
 from qiime.parse import parse_mapping_file, parse_coords
@@ -69,7 +70,8 @@ def main():
                                          seeds,
                                          PCs)
 
-    results = kmeans(data, means, opts.num_clusters)
+    euclidean_distance = lambda x, y: norm(x-y)
+    results = kmeans(data, means, euclidean_distance, opts.num_clusters)
 
     mapping_data, headers, comments = parse_mapping_file(
                                         open(opts.mapping_file), 'U')
