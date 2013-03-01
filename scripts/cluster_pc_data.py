@@ -36,10 +36,11 @@ script_info['required_options'] = [
 
 ]
 script_info['optional_options'] = [
- make_option('-p', '--PCs', type='string', help=('PCs to consider when '
-                                                 'clustering '
+ make_option('-p', '--PCs', type='string', help=('Subset of PCs to consider '
+                                                 'when clustering, as a comma-'
+                                                 'separated list(e.g., 1,2,3) '
                                                  '[default=%default]'),
-             default='1,2,3'),
+             default='All'),
 
  make_option('-s', '--seeds', type='string', help=('Sample IDs to use as the '
                                                    'initial means. if no '
@@ -57,7 +58,11 @@ script_info['version'] = __version__
 def main():
     option_parser, opts, args = parse_command_line_parameters(**script_info)
 
-    PCs = [int(x)-1 for x in opts.PCs.split(',')]
+    if opts.PCs == 'All':
+        # If 'All', do not use a subset, use all PCs by setting PCs to None
+        PCs = None
+    else:
+        PCs = [int(x)-1 for x in opts.PCs.split(',')]
 
     if opts.seeds:
         seeds = opts.seeds.split(',')
@@ -70,9 +75,10 @@ def main():
                                             seeds,
                                             PCs)
 
-    euclidean_distance = lambda x, y: norm(x-y)
-    results = kmeans(data, means, euclidean_distance, opts.num_clusters)
+    results = kmeans(data, means, opts.num_clusters)
 
+    # write a new column to the mapping file that says for each sample which
+    # cluster it is in
     mapping_data, headers, comments = parse_mapping_file(
                                         open(opts.mapping_file), 'U')
 

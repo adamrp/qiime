@@ -2,8 +2,9 @@
 # File created on 13 Feb 2013
 from __future__ import division
 
-from numpy import array
+from numpy import array, mean
 from numpy.random import uniform
+from numpy.linalg import norm
 
 from collections import defaultdict
 from itertools import izip
@@ -17,7 +18,7 @@ __maintainer__ = "Adam Robbins-Pianka"
 __email__ = "adam.robbinspianka@colorado.edu"
 __status__ = "Development"
 
-"""Functions for computing kmeans clusters given a tab-separated dataset
+"""Functions for computing kmeans clusters
 """
 
 class UnknownSampleID(Exception):
@@ -26,17 +27,19 @@ class UnknownSampleID(Exception):
 class BadNumberOfClusters(Exception):
     pass
 
+class MaxIterationsReached(Exception):
+    pass
+
 def select_pc_data_for_kmeans(coords_data, mean_sample_ids = None,
-                              principal_coordinates=[0,1,2]):
+                              principal_coordinates=None):
     """Selects a subset of data to use for kmeans clustering
 
     Input:
         coords_data: output of qiime.parse.parse_coords
         mean_sample_ids: the IDs of the samples that will be used as the means.
-                         If None, then the data points will be randomly
-                         partitioned into num_clusters clusters
+                         can be None.
         principal_coordinates: list of principal coordinates to use (e.g.,
-                               [1,2,3])
+                               [1,2,3]). If None, use all.
     Output:
         ({sample_id: data_point, ...},
          {mean_id: mean_point, ...})
@@ -44,6 +47,10 @@ def select_pc_data_for_kmeans(coords_data, mean_sample_ids = None,
         where data_point and mean_point are numpy arrays
     """
     sample_ids, PCs = coords_data[0], coords_data[1]
+
+    # if principal_coordinates is None, use all the principal coordinates
+    if principal_coordinates is None:
+        principal_coordinates = range(len(PCs))
 
     data = {}
     means = {}
@@ -66,6 +73,7 @@ def select_pc_data_for_kmeans(coords_data, mean_sample_ids = None,
 
     return (data, means)
 
+#TODO: consider empty clusters
 def assign_data_to_means(data, means, distance_fn, num_clusters = None):
     """Assigns each data point in data to exactly one mean in means
 
@@ -81,7 +89,8 @@ def assign_data_to_means(data, means, distance_fn, num_clusters = None):
                     function must take two parameters (the vectors) and return
                     a single value.
         num_clusters: Used if means is None; number of clusters into which
-                      the data points will be randomly partitioned.
+                      the data points will be randomly partitioned. Note,
+                      num_clusters is ignored if initial means are supplied
 
         where data_point and mean_point are numpy arrays
 
@@ -93,23 +102,24 @@ def assign_data_to_means(data, means, distance_fn, num_clusters = None):
     result = defaultdict(list)
 
     # if no means are supplied, randomly partition data
-    randomly_partition = not means
-    if randomly_partition:
+    if not means:
         if not num_clusters:
             raise BadNumberOfClusters, ("This function requires initial means "
                                         "or, if the data is to be randomly "
                                         "partitioned, the number of clusters "
                                         "to create")
 
+        # assign the data point to its mean
+        #TODO: this raises the possibility of having empty clusters
         mean_assignments = map(int, uniform(0, num_clusters, len(data)))
 
-    for counter, (sample_id, data_point) in enumerate(data.iteritems()):
-        # if the data are being randomly partitioned, then assign the data
-        # point to its mean
-        if randomly_partition:
+        for counter, (sample_id, data_point) in enumerate(data.iteritems()):
             result[mean_assignments[counter]].append(sample_id)
-            continue
 
+        return result
+
+    # implicit "else" here
+    for counter, (sample_id, data_point) in enumerate(data.iteritems()):
         # set the first mean in the list to be the nearest
         nearest_mean_id = 0
         dist_to_nearest_mean = distance_fn(means[0], data_point)
@@ -128,7 +138,14 @@ def assign_data_to_means(data, means, distance_fn, num_clusters = None):
 
     return result
 
-def find_center(data):
+def euclidean_distance(v1, v2):
+    """Returns the euclidean distance between vectors v1 and v2
+
+    v1 and v2 should be numpy arrays
+    """
+    return norm(v1-v2)
+
+def euclidean_center(data):
     """Finds the cetner of a set of points
 
     Inputs:
@@ -137,10 +154,11 @@ def find_center(data):
     Output:
         numpy array representing the point at the center of data
     """
-    return sum(data) / (1.0 * len(data))
+    return mean(data, axis=0)
 
-def kmeans(data, means, distance_fn, num_clusters, 
-           epsilon = 0.001, max_iterations = 5000):
+def kmeans(data, means, num_clusters, distance_fn=euclidean_distance, 
+           find_center_fn=euclidean_center, epsilon = 1e-5,
+           max_iterations = 5000):
     """Runs kmeans on data using a list of means
 
     Inputs:
@@ -152,13 +170,18 @@ def kmeans(data, means, distance_fn, num_clusters,
                iteration will randomly partition the set of data points into
                num_clusters clusters.
 
-        distance_fn: function that calculates "distance" between two
-                     vectors. The function must take two parameters (the
-                     vectors) and return a single value.
-
         num_clusters: integeral number of clusters to form. If means is not
                       None, then this number must match the number of means in
                       means.
+
+        distance_fn: function that calculates "distance" between two
+                     vectors. The function must take two parameters (the
+                     vectors) and return a single value. The vectors should be
+                     numpy arrays. Defaults to euclidean distance.
+
+        find_center_fn: function that calculates the center of a set of
+                        vectors. Must take as input a list of numpy arrays
+                        and output a single numpy array.
 
         epsilon: keep iterating until the means move less than epsilon distance
 
@@ -177,22 +200,30 @@ def kmeans(data, means, distance_fn, num_clusters,
 
     randomly_partitioning = not means
 
-    while total_change > epsilon and iteration < max_iterations:
+    while total_change > epsilon:
+        # make sure we have not exceeded max iterations. If so, throw exception
+        if iteration == max_iterations:
+            raise MaxIterationsReached, ("K-means reached %d iterations, but "
+                                         "the maximum number of iterations "
+                                         "was set to %d") % (iteration,
+                                                             max_iterations)
+
+        # Note that if means is none, the data will be randomly partitioned
         current_state = assign_data_to_means(data, means, distance_fn,
                                              num_clusters)
 
         total_change = 0.0
         for mean_id, point_ids in current_state.iteritems():
-            new_mean = find_center([data[point_id] for point_id in point_ids])
+            new_mean = find_center_fn([data[point_id] for point_id in
+                                                          point_ids])
             means[mean_id] = new_mean
-
-            if randomly_partitioning:
-                total_change = epsilon + 1
-                continue
 
             total_change += distance_fn(new_mean, means[mean_id])
 
-        randomly_partitioning = False
+        if randomly_partitioning:
+            total_change = epsilon + 1
+            randomly_partitioning = False
+
         iteration += 1
 
     results = {}
