@@ -21,6 +21,11 @@ __status__ = "Development"
 """Functions for computing kmeans clusters
 """
 
+#TODO:
+#k-means++ -- way of picking initial means (when choosing random means) that
+#             bounds how bad the solution can be compared to optimal
+#http://en.wikipedia.org/wiki/K-means%2B%2B
+
 class UnknownSampleID(Exception):
     pass
 
@@ -31,7 +36,7 @@ class MaxIterationsReached(Exception):
     pass
 
 def select_pc_data_for_kmeans(coords_data, mean_sample_ids = None,
-                              principal_coordinates=None):
+                              principal_coordinates = None):
     """Selects a subset of data to use for kmeans clustering
 
     Input:
@@ -39,7 +44,7 @@ def select_pc_data_for_kmeans(coords_data, mean_sample_ids = None,
         mean_sample_ids: the IDs of the samples that will be used as the means.
                          can be None.
         principal_coordinates: list of principal coordinates to use (e.g.,
-                               [1,2,3]). If None, use all.
+                               [0,1,2]). If None, use all.
     Output:
         ({sample_id: data_point, ...},
          {mean_id: mean_point, ...})

@@ -79,17 +79,27 @@ def main():
 
     # write a new column to the mapping file that says for each sample which
     # cluster it is in
+
     mapping_data, headers, comments = parse_mapping_file(
                                         open(opts.mapping_file), 'U')
 
-
     headers = headers[:-1] + ['cluster'] + headers[-1:]
 
+    # the mean_ids in the kmeans results are actually tuples of the
+    # coordinates of the means. We do not want to put these coordinates
+    # in the mapping file, but rather merely a unique identifier
+    coords_to_ids = {}
+    cluster_counter = 0
     for i,data in enumerate(mapping_data):
         sample_id = data[0]
         for mean_id, sample_ids in results.iteritems():
+            if mean_id not in coords_to_ids:
+                coords_to_ids[mean_id] = cluster_counter
+                cluster_counter += 1
+            cluster_id = coords_to_ids[mean_id]
+
             if sample_id in sample_ids:
-                cluster = mean_id
+                cluster = cluster_id
                 break
 
         mapping_data[i] = data[:-1] + [str(cluster)] + data[-1:]
