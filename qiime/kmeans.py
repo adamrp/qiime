@@ -24,7 +24,7 @@ __status__ = "Development"
 #TODO:
 #k-means++ -- way of picking initial means (when choosing random means) that
 #             bounds how bad the solution can be compared to optimal
-#http://en.wikipedia.org/wiki/K-means%2B%2B
+#             http://en.wikipedia.org/wiki/K-means%2B%2B
 
 class UnknownSampleID(Exception):
     pass
@@ -50,6 +50,8 @@ def select_pc_data_for_kmeans(coords_data, mean_sample_ids = None,
          {mean_id: mean_point, ...})
 
         where data_point and mean_point are numpy arrays
+        Each mean_id will be a unique identifier (0, 1, 2, ...)
+        Each sample_id will be the sample ID from the input coords_data
     """
     sample_ids, PCs = coords_data[0], coords_data[1]
 
@@ -138,6 +140,7 @@ def assign_data_to_means(data, means, distance_fn, num_clusters = None):
             dist_to_this_mean = distance_fn(mean_point, data_point)
             if dist_to_this_mean < dist_to_nearest_mean:
                 nearest_mean_id = mean_id
+                dist_to_nearest_mean = distance_to_this_mean
 
         result[nearest_mean_id].append(sample_id)
 
@@ -154,7 +157,7 @@ def euclidean_center(data):
     """Finds the cetner of a set of points
 
     Inputs:
-        data: a list of numpy arrays representing points in space
+        data: a list of n-length numpy arrays representing points in n-space
 
     Output:
         numpy array representing the point at the center of data
@@ -221,9 +224,12 @@ def kmeans(data, means, num_clusters, distance_fn=euclidean_distance,
         for mean_id, point_ids in current_state.iteritems():
             new_mean = find_center_fn([data[point_id] for point_id in
                                                           point_ids])
-            means[mean_id] = new_mean
 
-            total_change += distance_fn(new_mean, means[mean_id])
+            # if we are randomly partitioning, means[mean_id] is undefined
+            if not randomly_partitioning:
+                total_change += distance_fn(new_mean, means[mean_id])
+
+            means[mean_id] = new_mean
 
         if randomly_partitioning:
             total_change = epsilon + 1
