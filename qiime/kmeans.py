@@ -3,7 +3,7 @@
 from __future__ import division
 
 from numpy import array, mean
-from numpy.random import uniform
+from numpy.random import uniform, shuffle
 from numpy.linalg import norm
 
 from collections import defaultdict
@@ -80,7 +80,6 @@ def select_pc_data_for_kmeans(coords_data, mean_sample_ids = None,
 
     return (data, means)
 
-#TODO: consider empty clusters
 def assign_data_to_means(data, means, distance_fn, num_clusters = None):
     """Assigns each data point in data to exactly one mean in means
 
@@ -115,10 +114,19 @@ def assign_data_to_means(data, means, distance_fn, num_clusters = None):
                                         "or, if the data is to be randomly "
                                         "partitioned, the number of clusters "
                                         "to create")
+        if num_clusters > len(data):
+            raise BadNumberOfClusters, ("Number of clusters requested (%d) "
+                                        "exceeds number of data points (%d)" %
+                                        (num_clusters, len(data)))
 
-        # assign the data point to its mean
-        #TODO: this raises the possibility of having empty clusters
-        mean_assignments = map(int, uniform(0, num_clusters, len(data)))
+        # assign the first k points to different clusters, to avoid
+        # empty clusters
+        mean_assignments = range(num_clusters)
+        shuffle(mean_assignments)
+
+        # then assign the rest of the points randomly
+        mean_assignments.extend(map(int, uniform(0, num_clusters,
+                                                 len(data) - num_clusters)))
 
         for counter, (sample_id, data_point) in enumerate(data.iteritems()):
             result[mean_assignments[counter]].append(sample_id)
