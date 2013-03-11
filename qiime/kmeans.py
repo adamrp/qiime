@@ -140,7 +140,7 @@ def assign_data_to_means(data, means, distance_fn, num_clusters = None):
             dist_to_this_mean = distance_fn(mean_point, data_point)
             if dist_to_this_mean < dist_to_nearest_mean:
                 nearest_mean_id = mean_id
-                dist_to_nearest_mean = distance_to_this_mean
+                dist_to_nearest_mean = dist_to_this_mean
 
         result[nearest_mean_id].append(sample_id)
 
